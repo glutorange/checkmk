@@ -1,0 +1,36 @@
+#!/bin/bash
+
+TEMP_WARN=50
+TEMP_CRIT=60
+
+# nvidia-smi --query-gpu=driver_version,temperature.gpu,temperature.memory,memory.total,memory.used,gpu_name --format=csv,noheader,nounits
+# 470.57.02, 52, N/A, 7979, 1561, NVIDIA GeForce RTX 2070 SUPER
+
+NVIDIA_SMI=`/usr/bin/which nvidia-smi`
+
+if [ -z "{NVIDIA_SMI}" ] || [ ! -x "${NVIDIA_SMI}" ]; then
+  exit
+fi
+
+trim() {
+  local s2 s="$*"
+  until s2="${s#[[:space:]]}"; [ "$s2" = "$s" ]; do s="$s2"; done
+  until s2="${s%[[:space:]]}"; [ "$s2" = "$s" ]; do s="$s2"; done
+  echo "$s"
+}
+
+#echo "<<<nvidia_smi>>>"
+for GPU_INDEX in `${NVIDIA_SMI} --query-gpu=index --format=csv,noheader`; do
+    while IFS="," read -r index gpu_name driver_version temperature_gpu memory_total memory_used utilization_gpu power_draw
+    do
+        if (( $(trim $temperature_gpu) >= ${TEMP_CRIT} )); then
+            SEVERITY=2
+        elif (( $(trim $temperature_gpu) >= ${TEMP_WARN} )); then
+            SEVERITY=1
+        else
+            SEVERITY=0
+        fi
+
+        echo "${SEVERITY} NVIDIA_GPU_$(trim $index) gpu_temp=$(trim $temperature_gpu);${TEMP_WARN};${TEMP_CRIT}|power_draw=$(trim $power_draw)|gpu_memory=$(trim $memory_used);;0;$(trim $memory_total) $(trim $gpu_name), Version $(trim $driver_version) - Temp GPU $(trim $temperature_gpu)"°C" - $(trim $memory_used)MB/$(trim $memory_total)MB used - Power $(trim $power_draw)W"
+    done  < <( nvidia-smi --query-gpu=index,gpu_name,driver_version,temperature.gpu,memory.total,memory.used,utilization.gpu,power.draw --format=csv,noheader,nounits )
+done

@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "<<<df>>>"
+echo "/storagebox sb `echo df | sftp -q storagebox | tail -1 | awk '{print $1" "$2" "$3" "$5}'` /storagebox"
